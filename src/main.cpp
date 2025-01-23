@@ -16,7 +16,7 @@ Motor BackGoonMotor(BACKGOONPORT, MotorGearset::green);
 Motor GoonVeyerMotor(GOONVEYERPORT, MotorGearset::green);
 
 /*Change the 15 into the length between the front and back wheels, starting from middle of the wheel*/
-lemlib::Drivetrain DriveTrain(&LeftMotorGroup, &RightMotorGroup, 15, lemlib::Omniwheel::OLD_4, 200, 2);
+lemlib::Drivetrain DriveTrain(&LeftMotorGroup, &RightMotorGroup, 10, lemlib::Omniwheel::OLD_4, 200, 2);
 
 // lateral PID controller
 lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
@@ -138,9 +138,11 @@ void opcontrol() {
         bool yButton = false;
         bool aButton = false;
         bool bButton = false;
+        bool l1Button = false;
+        bool l2Button = false;
 
         // move the robot
-        chassis.arcade(leftY, leftX);
+        chassis.arcade(leftX, leftY);
 
         //Check Button Toggles
         if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_X)){
@@ -155,16 +157,25 @@ void opcontrol() {
         if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
             bButton = !bButton;
         }
-
+        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
+            l1Button = !l1Button;
+        }
+        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
+            l2Button = !l2Button;
+        }
         if(xButton){
             BackGoonMotor.move_velocity(greenGearset);
         }
 
-        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
+
+        if(l1Button){
             GoonVeyerMotor.move_velocity(greenGearset);
         }
-        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
+        else if(l2Button){
             GoonVeyerMotor.move_velocity(-greenGearset);
+        }
+        else{
+            GoonVeyerMotor.move_velocity(0);
         }
 
         // delay to save resources
