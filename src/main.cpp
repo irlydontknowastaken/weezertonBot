@@ -5,11 +5,11 @@ using namespace pros;
 
 
 const int greenGearset = 200;
-
+const int redGearset = 100;
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
-MotorGroup LeftMotorGroup({FRONTLEFTMOTORPORT, BACKLEFTMOTORPORT}, MotorGearset::green);
-MotorGroup RightMotorGroup({FRONTRIGHTMOTORPORT, BACKRIGHTMOTORPORT}, MotorGearset::green);
+MotorGroup LeftMotorGroup({FRONTLEFTMOTORPORT, MIDDLELEFTMOTORPORT, BACKLEFTMOTORPORT}, MotorGearset::green);
+MotorGroup RightMotorGroup({FRONTRIGHTMOTORPORT, MIDDLERIGHTMOTORPORT, BACKRIGHTMOTORPORT}, MotorGearset::green);
 
 Motor BackGoonMotor(BACKGOONPORT, MotorGearset::green);
 
@@ -44,11 +44,24 @@ lemlib::ControllerSettings angular_controller(2, // proportional gain (kP)
 
 lemlib::OdomSensors sensors(nullptr,nullptr,nullptr,nullptr,nullptr);
 
+lemlib::ExpoDriveCurve throttle_curve(3, // joystick deadband out of 127
+                                     10, // minimum output where drivetrain will move out of 127
+                                     1.019 // expo curve gain
+);
+
+// input curve for steer input during driver control
+lemlib::ExpoDriveCurve steer_curve(3, // joystick deadband out of 127
+                                  10, // minimum output where drivetrain will move out of 127
+                                  1.019 // expo curve gain
+);
+
 // create the chassis
 lemlib::Chassis chassis(DriveTrain, // drivetrain settings
                         lateral_controller, // lateral PID settings
                         angular_controller,
-						sensors // angular PID settings
+						sensors,
+                        &throttle_curve, 
+                        &steer_curve // angular PID settings
 );
 
 void on_center_button() {
@@ -70,6 +83,9 @@ void on_center_button() {
 void initialize() {
     pros::lcd::initialize(); // initialize brain screen
     chassis.calibrate(); // calibrate sensors
+    BackGoonMotor.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    GoonVeyerMotor.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+
     // print position to brain screen
     pros::Task screen_task([&]() {
         while (true) {
@@ -134,48 +150,44 @@ void opcontrol() {
         int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         int leftX = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_X);
 
-        bool xButton = false;
+        bool backMotorEngaged = true;
         bool yButton = false;
         bool aButton = false;
         bool bButton = false;
         bool l1Button = false;
         bool l2Button = false;
+        
+        
+        chassis.curvature(leftY, leftX);
 
-        // move the robot
-        chassis.arcade(leftX, leftY);
+        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
+            BackGoonMotor.move_velocity(redGearset);
+        }
+        else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
+            BackGoonMotor.move_velocity(-redGearset);
+        }
+        else{
+            BackGoonMotor.brake();
+        }
 
-        //Check Button Toggles
-        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_X)){
-            xButton = !xButton;
+        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
+            GoonVeyerMotor.move_velocity(greenGearset);
         }
-        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){
-            yButton = !yButton;
+        else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
+            GoonVeyerMotor.move_velocity(-greenGearset);
         }
-        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
-            aButton = !aButton;
+        else{
+            GoonVeyerMotor.brake();
         }
-        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
-            bButton = !bButton;
-        }
+
+
+
+
         if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
             l1Button = !l1Button;
         }
         if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
             l2Button = !l2Button;
-        }
-        if(xButton){
-            BackGoonMotor.move_velocity(greenGearset);
-        }
-
-
-        if(l1Button){
-            GoonVeyerMotor.move_velocity(greenGearset);
-        }
-        else if(l2Button){
-            GoonVeyerMotor.move_velocity(-greenGearset);
-        }
-        else{
-            GoonVeyerMotor.move_velocity(0);
         }
 
         // delay to save resources
